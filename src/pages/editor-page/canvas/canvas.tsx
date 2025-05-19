@@ -105,9 +105,9 @@ const tableToTableNode = (
 ): TableNodeType => ({
     id: table.id,
     type: 'table',
-    position: { 
+    position: {
         x: typeof table.x === 'number' && !isNaN(table.x) ? table.x : 0,
-        y: typeof table.y === 'number' && !isNaN(table.y) ? table.y : 0
+        y: typeof table.y === 'number' && !isNaN(table.y) ? table.y : 0,
     },
     data: {
         table,
@@ -169,13 +169,14 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
     const { reorderTables, fitView, setOverlapGraph, overlapGraph } =
         useCanvas();
 
-    const [isInitialLoadingNodes, setIsInitialLoadingNodes] = useState(true);    const [nodes, setNodes, onNodesChange] = useNodesState<NodeType>(
+    const [isInitialLoadingNodes, setIsInitialLoadingNodes] = useState(true);
+    const [nodes, setNodes, onNodesChange] = useNodesState<NodeType>(
         initialTables.map((table) => {
             const node = tableToTableNode(table, filteredSchemas);
             // Ensure valid position values
             node.position = {
                 x: typeof table.x === 'number' && !isNaN(table.x) ? table.x : 0,
-                y: typeof table.y === 'number' && !isNaN(table.y) ? table.y : 0
+                y: typeof table.y === 'number' && !isNaN(table.y) ? table.y : 0,
             };
             return node;
         })
@@ -331,37 +332,44 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
                 }
             })
         );
-    }, [selectedRelationshipIds, selectedTableIds, setEdges, getEdges]);    useEffect(() => {
+    }, [selectedRelationshipIds, selectedTableIds, setEdges, getEdges]);
+    useEffect(() => {
         setNodes((currentNodes) => {
             const updatedNodes = [
                 ...tables.map((table) => {
                     const isOverlapping =
                         (overlapGraph.graph.get(table.id) ?? []).length > 0;
                     const node = tableToTableNode(table, filteredSchemas);
-                    
+
                     // Find existing node
-                    const existingNode = currentNodes.find(n => n.id === table.id);
+                    const existingNode = currentNodes.find(
+                        (n) => n.id === table.id
+                    );
                     if (existingNode) {
                         // Keep position if it's valid
-                        if (existingNode.position && 
-                            typeof existingNode.position.x === 'number' && !isNaN(existingNode.position.x) &&
-                            typeof existingNode.position.y === 'number' && !isNaN(existingNode.position.y)) {
+                        if (
+                            existingNode.position &&
+                            typeof existingNode.position.x === 'number' &&
+                            !isNaN(existingNode.position.x) &&
+                            typeof existingNode.position.y === 'number' &&
+                            !isNaN(existingNode.position.y)
+                        ) {
                             node.position = { ...existingNode.position };
                         }
-                        
+
                         // Preserve measured dimensions during drag or resize
                         if (existingNode.dragging || existingNode.resizing) {
                             node.measured = existingNode.measured;
                         }
-                        
+
                         // Preserve selection state
                         node.selected = existingNode.selected;
-                        
+
                         // Preserve any ongoing drag or resize operation
                         if (existingNode.dragging) node.dragging = true;
                         if (existingNode.resizing) node.resizing = true;
                     }
-            
+
                     return {
                         ...node,
                         data: {
@@ -380,7 +388,7 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
         areas,
         setNodes,
         filteredSchemas,
-        overlapGraph.lastUpdated, 
+        overlapGraph.lastUpdated,
         overlapGraph.graph,
         highlightOverlappingTables,
     ]);
@@ -619,17 +627,24 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
             };
         },
         [getNode]
-    );    const onNodesChangeHandler: OnNodesChange<NodeType> = useCallback(
+    );
+    const onNodesChangeHandler: OnNodesChange<NodeType> = useCallback(
         (changes) => {
-            let changesToApply = changes.map(change => {
+            let changesToApply = changes.map((change) => {
                 if (change.type === 'position' && change.position) {
                     // Get current node to preserve properties
                     const node = getNode(change.id);
-                    const x = typeof change.position.x === 'number' && !isNaN(change.position.x) 
-                        ? change.position.x : (node?.position?.x ?? 0);
-                    const y = typeof change.position.y === 'number' && !isNaN(change.position.y) 
-                        ? change.position.y : (node?.position?.y ?? 0);
-                    
+                    const x =
+                        typeof change.position.x === 'number' &&
+                        !isNaN(change.position.x)
+                            ? change.position.x
+                            : (node?.position?.x ?? 0);
+                    const y =
+                        typeof change.position.y === 'number' &&
+                        !isNaN(change.position.y)
+                            ? change.position.y
+                            : (node?.position?.y ?? 0);
+
                     return {
                         ...change,
                         position: { x, y },
@@ -650,19 +665,23 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
             const { positionChanges, removeChanges, sizeChanges } =
                 findRelevantNodesChanges(changesToApply, 'table');
 
-            if (positionChanges.length > 0 || removeChanges.length > 0 || sizeChanges.length > 0) {
+            if (
+                positionChanges.length > 0 ||
+                removeChanges.length > 0 ||
+                sizeChanges.length > 0
+            ) {
                 // Skip updates if node is being dragged to reduce re-renders
-                const isDragging = positionChanges.some(change => {
+                const isDragging = positionChanges.some((change) => {
                     if (change.type === 'position' && 'dragging' in change) {
                         return change.dragging;
                     }
                     return false;
                 });
-                
+
                 if (!isDragging) {
                     updateTablesState((currentTables) => {
                         const updates = new Map();
-                        positionChanges.forEach(change => {
+                        positionChanges.forEach((change) => {
                             if (change.position) {
                                 updates.set(change.id, {
                                     id: change.id,
@@ -671,14 +690,19 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
                                 });
                             }
                         });
-                        
-                        return currentTables.map(table => 
-                            updates.has(table.id) ? 
-                                { ...table, ...updates.get(table.id) } : 
-                                table
-                        ).filter(table =>
-                            !removeChanges.some(change => change.id === table.id)
-                        );
+
+                        return currentTables
+                            .map((table) =>
+                                updates.has(table.id)
+                                    ? { ...table, ...updates.get(table.id) }
+                                    : table
+                            )
+                            .filter(
+                                (table) =>
+                                    !removeChanges.some(
+                                        (change) => change.id === table.id
+                                    )
+                            );
                     });
 
                     // Update overlapping graph only when not dragging
@@ -728,44 +752,60 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
 
             return onNodesChange(changesToApply);
         },
-        [onNodesChange, getNode, updateTablesState, updateOverlappingGraphOnChangesDebounced, 
-         findRelevantNodesChanges, readonly, updateArea, removeArea]
+        [
+            onNodesChange,
+            getNode,
+            updateTablesState,
+            updateOverlappingGraphOnChangesDebounced,
+            findRelevantNodesChanges,
+            readonly,
+            updateArea,
+            removeArea,
+        ]
     );
 
     // Event consumer for table changes
     const eventConsumer = useCallback(
         (event: ChartDBEvent) => {
             let newOverlappingGraph: Graph<string> = overlapGraph;
-            
+
             if (event.action === 'add_tables') {
                 // Batch process new tables
                 const newNodes = event.data.tables
-                    .filter(table => !getNode(table.id)?.dragging)
-                    .map(table => getNode(table.id))
-                    .filter((node): node is TableNodeType => node?.type === 'table');
+                    .filter((table) => !getNode(table.id)?.dragging)
+                    .map((table) => getNode(table.id))
+                    .filter(
+                        (node): node is TableNodeType => node?.type === 'table'
+                    );
 
                 if (newNodes.length > 0) {
-                    newOverlappingGraph = newNodes.reduce((graph, node) => 
-                        findTableOverlapping(
-                            { node },
-                            {
-                                nodes: nodes.filter(n => !n.hidden && n.type === 'table') as TableNodeType[],
-                            },
-                            graph
-                        ), 
+                    newOverlappingGraph = newNodes.reduce(
+                        (graph, node) =>
+                            findTableOverlapping(
+                                { node },
+                                {
+                                    nodes: nodes.filter(
+                                        (n) => !n.hidden && n.type === 'table'
+                                    ) as TableNodeType[],
+                                },
+                                graph
+                            ),
                         overlapGraph
                     );
                     setOverlapGraph(newOverlappingGraph);
                 }
             } else if (event.action === 'remove_tables') {
-                newOverlappingGraph = event.data.tableIds.reduce((graph, tableId) => 
-                    removeVertex(graph, tableId),
+                newOverlappingGraph = event.data.tableIds.reduce(
+                    (graph, tableId) => removeVertex(graph, tableId),
                     newOverlappingGraph
                 );
                 setOverlapGraph(newOverlappingGraph);
-            } else if (event.action === 'add_field' || event.action === 'remove_field') {
+            } else if (
+                event.action === 'add_field' ||
+                event.action === 'remove_field'
+            ) {
                 const node = getNode(event.data.tableId) as TableNodeType;
-                
+
                 // Skip updates for dragging nodes
                 if (node && !node.dragging) {
                     const measured = {
@@ -781,31 +821,39 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
                             },
                         },
                         {
-                            nodes: nodes.filter(n => !n.hidden && n.type === 'table') as TableNodeType[],
+                            nodes: nodes.filter(
+                                (n) => !n.hidden && n.type === 'table'
+                            ) as TableNodeType[],
                         },
                         overlapGraph
                     );
                     setOverlapGraph(newOverlappingGraph);
 
                     // Update node internals to trigger dimension change
-                    setNodes(nds => 
-                        nds.map(n => {
-                            if (n.id === event.data.tableId && n.type === 'table') {
+                    setNodes((nds) =>
+                        nds.map((n) => {
+                            if (
+                                n.id === event.data.tableId &&
+                                n.type === 'table'
+                            ) {
                                 return {
                                     ...n,
                                     data: {
                                         ...n.data,
                                         table: n.data.table,
                                         isOverlapping: n.data.isOverlapping,
-                                        measured
-                                    }
+                                        measured,
+                                    },
                                 } as TableNodeType;
                             }
                             return n;
                         })
                     );
                 }
-            } else if (event.action === 'update_table' && event.data.table.width) {
+            } else if (
+                event.action === 'update_table' &&
+                event.data.table.width
+            ) {
                 const node = getNode(event.data.id) as TableNodeType;
                 if (node && !node.dragging) {
                     const measured = {
@@ -821,7 +869,9 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
                             },
                         },
                         {
-                            nodes: nodes.filter(n => !n.hidden && n.type === 'table') as TableNodeType[],
+                            nodes: nodes.filter(
+                                (n) => !n.hidden && n.type === 'table'
+                            ) as TableNodeType[],
                         },
                         overlapGraph
                     );
@@ -830,14 +880,21 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
             } else if (event.action === 'load_diagram') {
                 const diagramTables = event.data.diagram.tables ?? [];
                 const overlappingTablesInDiagram = findOverlappingTables({
-                    tables: diagramTables.filter(table =>
+                    tables: diagramTables.filter((table) =>
                         shouldShowTablesBySchemaFilter(table, filteredSchemas)
                     ),
                 });
                 setOverlapGraph(overlappingTablesInDiagram);
             }
         },
-        [overlapGraph, setOverlapGraph, getNode, nodes, setNodes, filteredSchemas]
+        [
+            overlapGraph,
+            setOverlapGraph,
+            getNode,
+            nodes,
+            setNodes,
+            filteredSchemas,
+        ]
     );
 
     events.useSubscription(eventConsumer);

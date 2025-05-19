@@ -30,7 +30,7 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
 }) => {
     const { t } = useTranslation();
     const [localField, setLocalField] = React.useState<DBField>(field);
-    
+
     const debouncedUpdateRef = useRef(
         debounce((value: Partial<DBField>) => {
             updateField(value);
@@ -40,20 +40,25 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
     // Update local field when prop changes
     useEffect(() => {
         setLocalField(field);
-    }, [field]);    const handleFieldUpdate = useCallback((updates: Partial<DBField>) => {
-        const newField = { ...localField, ...updates };
-        setLocalField(newField); // Update local state immediately
-        
-        // Trigger debounced update only if there are actual changes
-        if (!equal(newField, field)) {
-            debouncedUpdateRef.current(updates);
-        }
-    }, [field, localField]);
+    }, [field]);
+    const handleFieldUpdate = useCallback(
+        (updates: Partial<DBField>) => {
+            const newField = { ...localField, ...updates };
+            setLocalField(newField); // Update local state immediately
+
+            // Trigger debounced update only if there are actual changes
+            if (!equal(newField, field)) {
+                debouncedUpdateRef.current(updates);
+            }
+        },
+        [field, localField]
+    );
 
     // Cleanup debounce on unmount
     useEffect(() => {
+        const currentDebouncedUpdate = debouncedUpdateRef.current;
         return () => {
-            debouncedUpdateRef.current.cancel();
+            currentDebouncedUpdate.cancel();
         };
     }, []);
 
@@ -114,7 +119,8 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
                                     type="number"
                                     onChange={(e) =>
                                         handleFieldUpdate({
-                                            characterMaximumLength: e.target.value,
+                                            characterMaximumLength:
+                                                e.target.value,
                                         })
                                     }
                                     className="w-full rounded-md bg-muted text-sm"
@@ -130,7 +136,9 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
                             <Textarea
                                 value={localField.comments ?? ''}
                                 onChange={(e) =>
-                                    handleFieldUpdate({ comments: e.target.value })
+                                    handleFieldUpdate({
+                                        comments: e.target.value,
+                                    })
                                 }
                                 placeholder={t(
                                     'side_panel.tables_section.table.field_actions.no_comments'
