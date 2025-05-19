@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Ellipsis, Trash2 } from 'lucide-react';
 import { Input } from '@/components/input/input';
 import { Button } from '@/components/button/button';
@@ -14,7 +14,7 @@ import { Label } from '@/components/label/label';
 import { Checkbox } from '@/components/checkbox/checkbox';
 import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/components/textarea/textarea';
-import { debounce } from '@/lib/utils';
+import { debounce } from 'lodash';
 import equal from 'fast-deep-equal';
 
 export interface TableFieldPopoverProps {
@@ -30,30 +30,32 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
 }) => {
     const { t } = useTranslation();
     const [localField, setLocalField] = React.useState<DBField>(field);
-
-    const debouncedUpdateFieldRef = useRef<((value?: DBField) => void) | null>(
-        null
+    
+    const debouncedUpdateRef = useRef(
+        debounce((value: Partial<DBField>) => {
+            updateField(value);
+        }, 200)
     );
 
+    // Update local field when prop changes
     useEffect(() => {
-        debouncedUpdateFieldRef.current = debounce((value?: DBField) => {
-            updateField({
-                comments: value?.comments,
-                characterMaximumLength: value?.characterMaximumLength,
-                unique: value?.unique,
-            });
-        }, 200);
-
-        return () => {
-            debouncedUpdateFieldRef.current = null;
-        };
-    }, [updateField]);
-
-    useEffect(() => {
-        if (debouncedUpdateFieldRef.current && !equal(field, localField)) {
-            debouncedUpdateFieldRef.current(localField);
+        setLocalField(field);
+    }, [field]);    const handleFieldUpdate = useCallback((updates: Partial<DBField>) => {
+        const newField = { ...localField, ...updates };
+        setLocalField(newField); // Update local state immediately
+        
+        // Trigger debounced update only if there are actual changes
+        if (!equal(newField, field)) {
+            debouncedUpdateRef.current(updates);
         }
-    }, [localField, field]);
+    }, [field, localField]);
+
+    // Cleanup debounce on unmount
+    useEffect(() => {
+        return () => {
+            debouncedUpdateRef.current.cancel();
+        };
+    }, []);
 
     return (
         <Popover
@@ -90,10 +92,7 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
                                 checked={localField.unique}
                                 disabled={field.primaryKey}
                                 onCheckedChange={(value) =>
-                                    setLocalField((current) => ({
-                                        ...current,
-                                        unique: !!value,
-                                    }))
+                                    handleFieldUpdate({ unique: !!value })
                                 }
                             />
                         </div>
@@ -114,11 +113,9 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
                                     }
                                     type="number"
                                     onChange={(e) =>
-                                        setLocalField((current) => ({
-                                            ...current,
-                                            characterMaximumLength:
-                                                e.target.value,
-                                        }))
+                                        handleFieldUpdate({
+                                            characterMaximumLength: e.target.value,
+                                        })
                                     }
                                     className="w-full rounded-md bg-muted text-sm"
                                 />
@@ -131,12 +128,9 @@ export const TableFieldPopover: React.FC<TableFieldPopoverProps> = ({
                                 )}
                             </Label>
                             <Textarea
-                                value={localField.comments}
+                                value={localField.comments ?? ''}
                                 onChange={(e) =>
-                                    setLocalField((current) => ({
-                                        ...current,
-                                        comments: e.target.value,
-                                    }))
+                                    handleFieldUpdate({ comments: e.target.value })
                                 }
                                 placeholder={t(
                                     'side_panel.tables_section.table.field_actions.no_comments'
